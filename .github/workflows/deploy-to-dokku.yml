@@ -33,11 +33,11 @@ jobs:
 
       - name: Copy image to server
         run: |
-          scp -o StrictHostKeyChecking=no retrieval-demo.tar root@139.59.228.93:/tmp/retrieval-demo.tar
+          scp -o StrictHostKeyChecking=no retrieval-demo.tar ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }}:/tmp/retrieval-demo.tar
 
       - name: Load and deploy image on Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no root@139.59.228.93 << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} << 'EOF'
           docker load -i /tmp/retrieval-demo.tar
           docker tag retrieval-demo:latest dokku/retrieval-demo:latest
           dokku tags:deploy retrieval-demo latest
