@@ -72,7 +72,7 @@ jobs:
             echo 'Deploying Backend app...'
             dokku apps:create retrieval-demo-back || true
             dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
-            dokku proxy:ports-set retrieval-demo-back http:80:8000
+            dokku ports:add retrieval-demo-back http:80:8000
             dokku domains:set retrieval-demo-back api.retrieval.rethoriq.com
             
             echo 'Setting up network links...'
