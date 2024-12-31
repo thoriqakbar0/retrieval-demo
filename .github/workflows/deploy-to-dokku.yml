@@ -1,16 +1,36 @@
-name: Deploy to Dokku
+name: Build and Deploy to Dokku
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./web
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Add SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -28,18 +48,11 @@ jobs:
       - name: Deploy to Dokku
         run: |
           echo "Starting deployment..."
-          echo "Copying files to server..."
-          rsync -avz -e "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v" ./web root@${{ secrets.DOKKU_HOST }}:/tmp/retrieval-demo
-          echo "Running deployment commands..."
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
-            echo 'Changing to /tmp/retrieval-demo...'
-            cd /tmp/retrieval-demo
-            echo 'Building Docker image...'
-            docker build -t dokku/retrieval-demo:latest .
+            echo 'Pulling Docker image...'
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
             echo 'Deploying to Dokku...'
-            dokku git:from-image retrieval-demo dokku/retrieval-demo:latest
-            echo 'Cleaning up...'
-            rm -rf /tmp/retrieval-demo
+            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
             echo 'Deployment complete!'
           EOF
