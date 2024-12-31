@@ -31,9 +31,14 @@ jobs:
           docker tag retrieval-demo:latest ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
 
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DOKKU_DEPLOY_KEY }}
+
       - name: Deploy to Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.DOKKU_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ${{ secrets.DOKKU_DEPLOY_KEY }} root@${{ secrets.DOKKU_HOST }} << 'EOF'
           set -e
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
           docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest dokku/retrieval-demo:latest
