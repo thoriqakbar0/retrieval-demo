@@ -42,7 +42,7 @@ jobs:
 
       - name: Load and deploy image on Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 dokku@${{ secrets.DOKKU_HOST }} << 'EOF'
           set -e
           docker load -i /tmp/retrieval-demo.tar || { echo "Docker load failed"; exit 1; }
           docker tag retrieval-demo:latest dokku/retrieval-demo:latest || { echo "Docker tag failed"; exit 1; }
