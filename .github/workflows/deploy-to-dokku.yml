@@ -38,13 +38,6 @@ jobs:
             ${{ secrets.DOKKU_DEPLOY_KEY }}
           github-deploy-key: false
 
-      - name: Verify SSH key
-        run: |
-          echo "Verifying SSH key..."
-          ssh-add -l -E md5
-          echo "Testing SSH connection..."
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v dokku@${{ secrets.DOKKU_HOST }} "echo SSH connection successful!"
-
       - name: Deploy to Dokku
         run: |
           echo "Starting deployment..."
