@@ -66,17 +66,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
             echo 'Deploying Web app...'
-            dokku apps:create retrieval-demo || true
             dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
             
             echo 'Deploying Backend app...'
-            dokku apps:create retrieval-demo-back || true
             dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
-            dokku ports:add retrieval-demo-back http:80:8000
-            dokku domains:set retrieval-demo-back api.retrieval.rethoriq.com
-            
-            echo 'Setting up network links...'
-            dokku network:set retrieval-demo-web attach-post-create retrieval-demo-back
-            
+
             echo 'Deployment complete!'
           EOF
