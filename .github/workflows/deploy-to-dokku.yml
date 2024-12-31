@@ -26,17 +26,6 @@ jobs:
       - name: Save Docker image
         run: docker save -o retrieval-demo.tar retrieval-demo:latest
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
-          ssh-add-keys: true
-          ssh-add-args: -m PEM
-
-      - name: Test SSH connection to Dokku
-        run: |
-          ssh -o StrictHostKeyChecking=no -T dokku@${{ secrets.DOKKU_HOST }} "echo 'SSH connection successful!'"
-          ssh -o StrictHostKeyChecking=no -T ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} exit || true
 
       - name: Push to Docker Hub
         run: |
