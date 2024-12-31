@@ -38,9 +38,9 @@ jobs:
 
       - name: Deploy to Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ${{ secrets.DOKKU_DEPLOY_KEY }} root@${{ secrets.DOKKU_HOST }} << 'EOF'
-          set -e
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
-          docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest dokku/retrieval-demo:latest
-          dokku git:from-image retrieval-demo dokku/retrieval-demo:latest
-          EOF
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i ${{ secrets.DOKKU_DEPLOY_KEY }} root@${{ secrets.DOKKU_HOST }} "
+            set -e &&
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest &&
+            docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest dokku/retrieval-demo:latest &&
+            dokku git:from-image retrieval-demo dokku/retrieval-demo:latest
+          "
