@@ -30,7 +30,13 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
+          ssh-add-keys: true
           ssh-add-args: -m PEM
+
+      - name: Output Public Key
+        run: |
+          echo "Your public key is:"
+          ssh-keygen -y -f <(echo "${{ secrets.DOKKU_SSH_PRIVATE_KEY }}" | base64 --decode)
 
       - name: Verify SSH connection
         run: |
