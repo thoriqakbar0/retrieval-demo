@@ -33,12 +33,9 @@ jobs:
           ssh-add-keys: true
           ssh-add-args: -m PEM
 
-      - name: Output Public Key
+      - name: Test SSH connection to Dokku
         run: |
-          echo "Your public key is:"
-          ssh-keygen -y -f <(echo "${{ secrets.DOKKU_SSH_PRIVATE_KEY }}" | base64 --decode)
-
-      - name: Verify SSH connection
+          ssh -o StrictHostKeyChecking=no -T dokku@${{ secrets.DOKKU_HOST }} "echo 'SSH connection successful!'"
         run: |
           ssh -o StrictHostKeyChecking=no -T ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} exit || true
 
