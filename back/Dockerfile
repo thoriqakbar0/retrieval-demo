@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Copy and install requirements
 COPY requirements.txt .
-RUN uv pip install --no-cache -r requirements.txt
+RUN uv pip install --no-cache -r requirements.txt --system
 
 COPY . .
 
