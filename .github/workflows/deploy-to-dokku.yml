@@ -47,5 +47,5 @@ jobs:
           set -e
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
           docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest dokku/retrieval-demo:latest
-          dokku tags:deploy retrieval-demo latest
+          dokku git:from-image retrieval-demo dokku/retrieval-demo:latest
           EOF
