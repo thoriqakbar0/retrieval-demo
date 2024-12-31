@@ -66,10 +66,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
             echo 'Deploying Web app...'
-            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest || true
             
             echo 'Deploying Backend app...'
-            dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
+            dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest || true
 
             echo 'Deployment complete!'
           EOF
