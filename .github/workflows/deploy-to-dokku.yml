@@ -25,7 +25,7 @@ jobs:
         with:
           context: ./web
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-web:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -44,21 +44,11 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
             echo 'Pulling Docker image...'
-            echo 'Pulling Web Docker image...'
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-web:latest
-            echo 'Deploying Web to Dokku...'
-            dokku git:from-image retrieval-web ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-web:latest
-
-            echo 'Pulling API Docker image...'
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-api:latest
-            echo 'Deploying API to Dokku...'
-            dokku git:from-image retrieval-api ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-api:latest
-
-            echo 'Setting up network...'
-            dokku proxy:ports-set retrieval-web http:80:3000
-            dokku proxy:ports-set retrieval-api http:80:8000
-            dokku domains:set retrieval-web retrieval.rethoriq.com
-            dokku domains:set retrieval-api api.retrieval.rethoriq.com
-            dokku config:set retrieval-web API_URL=https://api.retrieval.rethoriq.com
+            echo 'Pulling Docker image...'
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
+            echo 'Deploying to Dokku...'
+            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
+            dokku proxy:ports-set retrieval-demo http:80:3000
+            dokku domains:set retrieval-demo retrieval.rethoriq.com
             echo 'Deployment complete!'
           EOF
