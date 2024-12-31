@@ -36,7 +36,6 @@ jobs:
       - name: Test SSH connection to Dokku
         run: |
           ssh -o StrictHostKeyChecking=no -T dokku@${{ secrets.DOKKU_HOST }} "echo 'SSH connection successful!'"
-        run: |
           ssh -o StrictHostKeyChecking=no -T ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} exit || true
 
       - name: Push to Docker Hub
