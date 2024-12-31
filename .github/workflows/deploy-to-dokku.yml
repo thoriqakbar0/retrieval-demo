@@ -26,7 +26,6 @@ jobs:
       - name: Save Docker image
         run: docker save -o retrieval-demo.tar retrieval-demo:latest
 
-
       - name: Push to Docker Hub
         run: |
           docker tag retrieval-demo:latest ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
@@ -34,7 +33,7 @@ jobs:
 
       - name: Deploy to Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 dokku@${{ secrets.DOKKU_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.DOKKU_HOST }} << 'EOF'
           set -e
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
           docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest dokku/retrieval-demo:latest
