@@ -30,16 +30,22 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
+          ssh-add-args: -m PEM
+
+      - name: Verify SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -T ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} exit || true
 
       - name: Copy image to server
         run: |
-          scp -o StrictHostKeyChecking=no retrieval-demo.tar ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }}:/tmp/retrieval-demo.tar
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 retrieval-demo.tar ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }}:/tmp/retrieval-demo.tar || { echo "SCP failed"; exit 1; }
 
       - name: Load and deploy image on Dokku
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} << 'EOF'
-          docker load -i /tmp/retrieval-demo.tar
-          docker tag retrieval-demo:latest dokku/retrieval-demo:latest
-          dokku tags:deploy retrieval-demo latest
-          rm /tmp/retrieval-demo.tar
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.DOKKU_USER }}@${{ secrets.DOKKU_HOST }} << 'EOF'
+          set -e
+          docker load -i /tmp/retrieval-demo.tar || { echo "Docker load failed"; exit 1; }
+          docker tag retrieval-demo:latest dokku/retrieval-demo:latest || { echo "Docker tag failed"; exit 1; }
+          dokku tags:deploy retrieval-demo latest || { echo "Dokku deploy failed"; exit 1; }
+          rm -f /tmp/retrieval-demo.tar
           EOF
