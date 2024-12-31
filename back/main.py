@@ -6,7 +6,7 @@ app = FastAPI()
 # Allow CORS for web frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://retrieval.rethoriq.com"],
+    allow_origins=["https://retrieval.rethoriq.com", "https://api.retrieval.rethoriq.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

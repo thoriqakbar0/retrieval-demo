@@ -20,12 +20,19 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Build Web Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./web
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+
+      - name: Build Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -43,12 +50,19 @@ jobs:
           echo "Starting deployment..."
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
-            echo 'Pulling Docker image...'
-            echo 'Pulling Docker image...'
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
-            echo 'Deploying to Dokku...'
-            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo:latest
-            dokku proxy:ports-set retrieval-demo http:80:3000
-            dokku domains:set retrieval-demo retrieval.rethoriq.com
+            echo 'Pulling Web Docker image...'
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+            echo 'Deploying Web to Dokku...'
+            dokku git:from-image retrieval-demo-web ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+            dokku proxy:ports-set retrieval-demo-web http:80:3000
+            dokku domains:set retrieval-demo-web retrieval.rethoriq.com
+
+            echo 'Pulling Backend Docker image...'
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
+            echo 'Deploying Backend to Dokku...'
+            dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
+            dokku proxy:ports-set retrieval-demo-back http:80:8000
+            dokku domains:set retrieval-demo-back api.retrieval.rethoriq.com
+            
             echo 'Deployment complete!'
           EOF
