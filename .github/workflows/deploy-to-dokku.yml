@@ -21,7 +21,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build Docker image
-        run: docker build -t retrieval-demo:latest .
+        run: docker build -t retrieval-demo:latest ./web
 
       - name: Save Docker image
         run: docker save -o retrieval-demo.tar retrieval-demo:latest
