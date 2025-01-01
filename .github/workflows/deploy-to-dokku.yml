@@ -63,7 +63,7 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:${{ steps.tag.outputs.tag }}
             ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
-          build-args: |
+          secrets: |
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
             S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}
