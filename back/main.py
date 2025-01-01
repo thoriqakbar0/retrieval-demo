@@ -1,3 +1,4 @@
+from requests import Request
 import pymupdf
 from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,11 +76,15 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding for text using OpenAI's API."""
-    response = openai.embeddings.create(
-        model="text-embedding-ada-002",
-        input=text
-    )
-    return response.data[0].embedding
+    try:
+        response = openai.embeddings.create(
+            model="text-embedding-ada-002",
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        print(f"Error getting embedding: {str(e)}")
+        raise
 
 def split_into_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
     """
@@ -234,15 +239,14 @@ async def process_document_background(document_id: str, content: bytes, filename
         # Get embeddings for each chunk and store in database
         with get_db() as conn:
             with conn.cursor() as cur:
-                for chunk in chunks:
+                for i, chunk in enumerate(chunks):
                     embedding = get_embedding(chunk)
                     cur.execute("""
-                        INSERT INTO chunks (id, document_id, text, embedding)
-                        VALUES (%s, %s, %s, %s)
-                    """, (str(uuid.uuid4()), document_id, chunk, embedding))
-            conn.commit()
+                        INSERT INTO chunks (id, document_id, text, embedding, "order", created_at)
+                        VALUES (%s, %s, %s, %s, %s, NOW())
+                    """, (str(uuid.uuid4()), document_id, chunk, embedding, i))
+                    conn.commit()  # Commit after each chunk so it's immediately available
         
-        # Update status to completed
         processing_status[document_id] = ProcessingStatus.COMPLETED
         
     except Exception as e:
@@ -296,28 +300,49 @@ async def upload_document(
 
 @app.get("/status/{document_id}")
 async def get_status(document_id: str):
+    # Get status from memory
     status = processing_status.get(document_id, ProcessingStatus.FAILED)
     
-    if status == ProcessingStatus.COMPLETED:
-        # Fetch chunks from database
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur = conn.cursor(cursor_factory=DictCursor)
-                cur.execute("""
-                    SELECT text, embedding 
-                    FROM chunks 
-                    WHERE document_id = %s
-                """, (document_id,))
-                chunks = cur.fetchall()
-                cur.close()
-        return {
-            "status": status.value,
-            "chunks": chunks
-        }
-    
-    return {
-        "status": status.value,
-        "chunks": None
-    }
+    # Get chunks if any exist
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("""
+                SELECT text, embedding, "order"
+                FROM chunks 
+                WHERE document_id = %s
+                ORDER BY "order" ASC
+            """, (document_id,))
+            chunks = cur.fetchall()
+            
+            return {
+                "status": status.value,
+                "chunks": chunks if chunks else None,
+                "chunks_processed": len(chunks)
+            }
+
+@app.get("/documents/{document_id}")
+async def get_document(document_id: str):
+    """Get document details by ID."""
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute("""
+                SELECT id, url, title, created_at
+                FROM documents 
+                WHERE id = %s
+            """, (document_id,))
+            doc = cur.fetchone()
+            
+            if not doc:
+                raise HTTPException(status_code=404, detail="Document not found")
+            
+            # Convert to dict and add status
+            doc_dict = dict(doc)
+            doc_dict['status'] = processing_status.get(document_id, ProcessingStatus.FAILED).value
+            return doc_dict
 
 
+@app.post("/chat")
+async def chat(request: Request):
+    data = await request.json()
+    print(data)
+    return {"message": "Chat message received"}

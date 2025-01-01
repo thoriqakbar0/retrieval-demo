@@ -5,8 +5,8 @@ import { db } from "./db";
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url").notNull(),
-  file_url: text("file_url").notNull(),
   title: text("title").notNull(),
+  status: text("status").notNull().default('pending'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
     index("url_idx").on(table.url),

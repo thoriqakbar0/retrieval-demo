@@ -1,31 +1,20 @@
-import { Chat } from "@/components/chat";
-import { db } from "@/lib/db";
-import { documents } from "@/lib/schema";
-import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { DocumentPageContent } from "./client";
 
-export default async function DocumentPage({
-  params,
-}: {
-  params: { documentId: string };
-}) {
-  const [document] = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.id, params.documentId));
+interface Props {
+  params: Promise<{ documentId: string }>;
+}
 
-  if (!document) {
-    notFound();
-  }
-
+export default async function DocumentPage({ params }: Props) {
+  const { documentId } = await params;
+  
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-8 sm:p-20">
-      <div className="flex flex-col items-center gap-4">
-        <h1 className="text-xl font-bold">{document.title}</h1>
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
-      <div className="w-full max-w-2xl">
-        <Chat documentId={params.documentId} />
-      </div>
-    </div>
+    }>
+      <DocumentPageContent documentId={documentId} />
+    </Suspense>
   );
 } 

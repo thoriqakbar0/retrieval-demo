@@ -1,11 +1,13 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '@/lib/utils';
 
 export function Upload() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddAnother, setShowAddAnother] = useState(false);
   const router = useRouter();
 
   const handleDrag = (e: React.DragEvent) => {
@@ -63,12 +65,35 @@ export function Upload() {
       }
 
       const data = await response.json();
-      if (data.documentId) {
-        router.push(`/${data.documentId}`);
+      
+      try {
+        // Wait for document to be available
+        const checkDocument = async () => {
+          const docResponse = await fetch(`${getApiUrl()}/documents/${data.document_id}`);
+          if (docResponse.ok) {
+            const docData = await docResponse.json();
+            if (docData.id) {
+              router.push(`/${data.document_id}`);
+            } else {
+              // Retry after a short delay
+              setTimeout(checkDocument, 500);
+            }
+          } else {
+            // Retry after a short delay
+            setTimeout(checkDocument, 500);
+          }
+        };
+        
+        await checkDocument();
+      } catch (docError) {
+        console.error('Error checking document:', docError);
+        throw new Error('Failed to verify document creation');
       }
+      
     } catch (error) {
       console.error('Upload failed:', error);
       setError(error instanceof Error ? error.message : 'Upload failed');
+      setShowAddAnother(true);
     } finally {
       setIsUploading(false);
     }
@@ -107,6 +132,18 @@ export function Upload() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
           {error}
+          {showAddAnother && (
+            <button
+              onClick={() => {
+                setError(null);
+                setShowAddAnother(false);
+                router.push('/');
+              }}
+              className="ml-4 text-sm underline hover:text-red-800"
+            >
+              Try Another File
+            </button>
+          )}
         </div>
       )}
     </div>
