@@ -1,5 +1,5 @@
-import fitz  # PyMuPDF
-from fastapi import FastAPI, HTTPException, UploadFile, File
+import pymupdf
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 import boto3
 from datetime import datetime
 import uuid
+from enum import Enum
+import re
+import nltk
+from nltk.tokenize import sent_tokenize
 
 load_dotenv()
 
@@ -23,6 +27,16 @@ s3 = boto3.client('s3',
 SPACE_NAME = 'thor'
 SPACE_FOLDER = 'documents'
 
+# In-memory store for processing status and chunks
+processing_status = {}
+document_chunks = {}
+
+class ProcessingStatus(Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,38 +47,118 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Download required NLTK data
+nltk.download('punkt', quiet=True)
+
 def get_embedding(text: str) -> list[float]:
+    """Get embedding for text using OpenAI's API."""
     response = openai.embeddings.create(
         model="text-embedding-ada-002",
         input=text
     )
     return response.data[0].embedding
 
-def split_into_chunks(text: str, chunk_size: int = 1000) -> list[str]:
-    """Split text into chunks of approximately chunk_size characters."""
-    words = text.split()
+def split_into_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
+    """
+    Split text into chunks with proper sentence boundaries and overlap.
+    
+    Args:
+        text: The text to split
+        chunk_size: Target size of each chunk in characters
+        overlap: Number of characters to overlap between chunks
+    """
+    # First, split into sentences
+    sentences = sent_tokenize(text)
+    
     chunks = []
     current_chunk = []
     current_size = 0
+    last_sentence = ""
     
-    for word in words:
-        word_size = len(word) + 1  # +1 for the space
-        if current_size + word_size > chunk_size and current_chunk:
-            chunks.append(' '.join(current_chunk))
-            current_chunk = [word]
-            current_size = word_size
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+            
+        sentence_size = len(sentence)
+        
+        # If this sentence alone is longer than chunk_size, split it by punctuation or spaces
+        if sentence_size > chunk_size:
+            # Try to split by punctuation first
+            subparts = re.split(r'[,;:]', sentence)
+            if len(subparts) == 1:  # No punctuation found, split by space
+                subparts = sentence.split()
+            
+            current_subpart = []
+            current_subsize = 0
+            
+            for part in subparts:
+                part = part.strip()
+                part_size = len(part)
+                
+                if current_subsize + part_size > chunk_size:
+                    if current_subpart:
+                        chunks.append(' '.join(current_subpart))
+                    current_subpart = [part]
+                    current_subsize = part_size
+                else:
+                    current_subpart.append(part)
+                    current_subsize += part_size + 1  # +1 for space
+            
+            if current_subpart:
+                chunks.append(' '.join(current_subpart))
+            continue
+        
+        # If adding this sentence exceeds chunk_size, start a new chunk
+        if current_size + sentence_size > chunk_size and current_chunk:
+            chunk_text = ' '.join(current_chunk)
+            chunks.append(chunk_text)
+            
+            # Start new chunk with overlap from the last sentence
+            if last_sentence and len(last_sentence) < overlap:
+                current_chunk = [last_sentence, sentence]
+                current_size = len(last_sentence) + sentence_size + 1
+            else:
+                current_chunk = [sentence]
+                current_size = sentence_size
         else:
-            current_chunk.append(word)
-            current_size += word_size
+            current_chunk.append(sentence)
+            current_size += sentence_size + 1  # +1 for space
+            
+        last_sentence = sentence
     
+    # Add the last chunk if there is one
     if current_chunk:
         chunks.append(' '.join(current_chunk))
     
-    return chunks
+    # Ensure minimum chunk size and merge small chunks if necessary
+    final_chunks = []
+    current_chunk = []
+    current_size = 0
+    min_chunk_size = chunk_size // 2
+    
+    for chunk in chunks:
+        if current_size + len(chunk) < chunk_size:
+            current_chunk.append(chunk)
+            current_size += len(chunk)
+        else:
+            if current_chunk:
+                final_chunks.append(' '.join(current_chunk))
+            current_chunk = [chunk]
+            current_size = len(chunk)
+    
+    if current_chunk:
+        if current_size < min_chunk_size and final_chunks:
+            # Merge small last chunk with the previous one
+            final_chunks[-1] = final_chunks[-1] + ' ' + ' '.join(current_chunk)
+        else:
+            final_chunks.append(' '.join(current_chunk))
+    
+    return final_chunks
 
 def process_pdf(file_content: bytes) -> str:
     """Extract text from PDF file using PyMuPDF."""
-    doc = fitz.open(stream=file_content, filetype="pdf")
+    doc = pymupdf.open(stream=file_content, filetype="pdf")
     text = ""
     for page in doc:
         text += page.get_text() + "\n"
@@ -92,29 +186,23 @@ def upload_to_spaces(file_content: bytes, filename: str) -> str:
             Bucket=SPACE_NAME,
             Key=key,
             Body=file_content,
-            ACL='public-read'  # Make the file publicly accessible
+            ACL='public-read'
         )
         
-        # Return the public URL
         return f"https://{SPACE_NAME}.sgp1.digitaloceanspaces.com/{key}"
     except Exception as e:
         print(f"Error uploading to Spaces: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to upload file to storage")
 
-@app.post("/process")
-async def process_document(file: UploadFile = File(...)):
+async def process_document_background(document_id: str, content: bytes, filename: str):
+    """Process document in background, create chunks and embeddings."""
     try:
-        content = await file.read()
-        filename = file.filename.lower()
+        processing_status[document_id] = ProcessingStatus.PROCESSING
         
-        # Upload the original file to Spaces
-        file_url = upload_to_spaces(content, filename)
-        
-        # Determine file type and process accordingly
-        if filename.endswith('.pdf'):
+        # Process content based on file type
+        if filename.lower().endswith('.pdf'):
             text = process_pdf(content)
-        else:
-            # For markdown and other text files
+        else:  # Markdown or text
             text = process_markdown(content.decode('utf-8'))
         
         # Split into chunks
@@ -123,19 +211,63 @@ async def process_document(file: UploadFile = File(...)):
         # Get embeddings for each chunk
         processed_chunks = []
         for chunk in chunks:
-            if chunk.strip():  # Only process non-empty chunks
-                embedding = get_embedding(chunk)
-                processed_chunks.append({
-                    "text": chunk,
-                    "embedding": embedding
-                })
+            embedding = get_embedding(chunk)
+            processed_chunks.append({
+                "text": chunk,
+                "embedding": embedding
+            })
+        
+        # Store chunks for later retrieval
+        document_chunks[document_id] = processed_chunks
+        
+        # Update status to completed
+        processing_status[document_id] = ProcessingStatus.COMPLETED
+        
+    except Exception as e:
+        print(f"Processing failed for document {document_id}: {str(e)}")
+        processing_status[document_id] = ProcessingStatus.FAILED
+
+@app.post("/upload")
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
+    try:
+        # Generate document ID
+        document_id = str(uuid.uuid4())
+        
+        # Read file content
+        content = await file.read()
+        
+        # Upload to Digital Ocean Spaces
+        file_url = upload_to_spaces(content, file.filename)
+        
+        # Set initial status
+        processing_status[document_id] = ProcessingStatus.PENDING
+        
+        # Start background processing
+        background_tasks.add_task(
+            process_document_background,
+            document_id,
+            content,
+            file.filename
+        )
         
         return {
-            "chunks": processed_chunks,
-            "file_url": file_url
+            "document_id": document_id,
+            "url": file_url,
+            "status": ProcessingStatus.PENDING.value
         }
+        
     except Exception as e:
-        print(f"Error processing document: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/status/{document_id}")
+async def get_status(document_id: str):
+    status = processing_status.get(document_id, ProcessingStatus.FAILED)
+    return {
+        "status": status.value,
+        "chunks": document_chunks.get(document_id, []) if status == ProcessingStatus.COMPLETED else None
+    }
 
 
