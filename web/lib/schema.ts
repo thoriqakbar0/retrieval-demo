@@ -3,8 +3,8 @@ import { pgTable, text, uuid, timestamp, index, vector } from "drizzle-orm/pg-co
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url").notNull(),
-  originalContent: text("original_content").notNull(),
-  chunks: text("chunks").array().notNull(),
+  title: text("title").notNull(),
+  chunks: text("chunk").notNull(),
   embeddings: vector('embeddings', { dimensions: 1536 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
