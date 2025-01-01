@@ -26,8 +26,6 @@ jobs:
           context: ./web
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
-          build-args: |
-            POSTGRES_URL=${{ secrets.POSTGRES_URL }}
 
   build-backend:
     runs-on: ubuntu-latest
@@ -76,6 +74,7 @@ jobs:
 
             echo 'Deploying Web app...'
             dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest || true
+            dokku config:set --no-restart retrieval-demo POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             dokku ps:rebuild retrieval-demo
             
             echo 'Deploying Backend app...'
