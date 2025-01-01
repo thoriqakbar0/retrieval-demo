@@ -48,7 +48,10 @@ app.add_middleware(
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Download required NLTK data
-nltk.download('punkt', quiet=True)
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding for text using OpenAI's API."""
