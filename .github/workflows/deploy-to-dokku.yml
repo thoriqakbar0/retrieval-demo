@@ -20,12 +20,18 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Generate unique tag
+        id: tag
+        run: echo "tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Build Web Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./web
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:${{ steps.tag.outputs.tag }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
           build-args: |
             POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             API_URL=${{ secrets.API_URL }}
@@ -50,7 +56,9 @@ jobs:
         with:
           context: ./back
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:${{ steps.tag.outputs.tag }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
           build-args: |
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
 
@@ -76,11 +84,11 @@ jobs:
             fi
 
             echo 'Deploying Web app...'
-            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest || true
+            dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:${{ steps.tag.outputs.tag }} || true
             dokku config:set --no-restart retrieval-demo POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             
             echo 'Deploying Backend app...'
-            dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest || true
+            dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:${{ steps.tag.outputs.tag }} || true
             dokku config:set --no-restart retrieval-demo-back POSTGRES_URL=${{ secrets.POSTGRES_URL }}
 
             echo 'Deployment complete!'
