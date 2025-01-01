@@ -79,12 +79,10 @@ client = openai.OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-# Add this after other environment variables
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 if not VOYAGE_API_KEY:
     raise ValueError("Voyage API key not found in environment variables")
 
-# Initialize Voyage client
 voyage_client = voyageai.Client()  # This will use VOYAGE_API_KEY from environment
 
 def get_embedding(text: str) -> list[float]:

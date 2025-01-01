@@ -35,7 +35,7 @@ jobs:
           build-args: |
             POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             NODE_ENV=production
-            NEXT_PUBLIC_API_URL=https://api.retrieval.rethoriq.com
+            API_URL=${{ secrets.API_URL }}
   build-backend:
     runs-on: ubuntu-latest
     steps:
@@ -99,7 +99,7 @@ jobs:
             dokku config:set retrieval-demo \
               "POSTGRES_URL='${{ secrets.POSTGRES_URL }}'" \
               "NODE_ENV='production'" \
-              "NEXT_PUBLIC_API_URL='https://api.retrieval.rethoriq.com'"
+              "NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}"
             
             echo 'Pulling latest Backend image...'
             docker pull thorthorq/retrieval-demo-back:latest
