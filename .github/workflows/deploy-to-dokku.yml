@@ -74,9 +74,11 @@ jobs:
 
             echo 'Deploying Web app...'
             dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest || true
+            dokku config:set --no-restart retrieval-demo POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             
             echo 'Deploying Backend app...'
             dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest || true
+            dokku config:set --no-restart retrieval-demo-back POSTGRES_URL=${{ secrets.POSTGRES_URL }}
 
             echo 'Deployment complete!'
           EOF
