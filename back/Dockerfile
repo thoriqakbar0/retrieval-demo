@@ -29,4 +29,6 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Allow environment variables to be passed in
 ARG OPENAI_API_KEY
+ARG POSTGRES_URL
 ENV OPENAI_API_KEY=${OPENAI_API_KEY}
+ENV POSTGRES_URL=${POSTGRES_URL}

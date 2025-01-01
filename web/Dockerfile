@@ -26,8 +26,9 @@ COPY . .
 # Pass environment variables as build arguments
 ARG POSTGRES_URL
 ARG API_URL
-ENV POSTGRES_URL=$POSTGRES_URL
-ENV API_URL=$API_URL
+ENV POSTGRES_URL=${POSTGRES_URL}
+ENV API_URL=${API_URL}
+ENV NODE_ENV=production
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -45,6 +46,9 @@ RUN \
 FROM base AS runner
 WORKDIR /app
 
+# Preserve build-time environment variables
+ENV POSTGRES_URL=${POSTGRES_URL}
+ENV API_URL=${API_URL}
 ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
