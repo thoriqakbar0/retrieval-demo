@@ -60,7 +60,6 @@ jobs:
         with:
           ssh-private-key: |
             ${{ secrets.DOKKU_DEPLOY_KEY }}
-          github-deploy-key: false
 
       - name: Deploy to Dokku
         run: |
