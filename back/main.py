@@ -237,7 +237,7 @@ async def process_document_background(document_id: str, content: bytes, filename
                 for chunk in chunks:
                     embedding = get_embedding(chunk)
                     cur.execute("""
-                        INSERT INTO chunks (id, document_id, content, embedding)
+                        INSERT INTO chunks (id, document_id, text, embedding)
                         VALUES (%s, %s, %s, %s)
                     """, (str(uuid.uuid4()), document_id, chunk, embedding))
             conn.commit()
@@ -304,7 +304,7 @@ async def get_status(document_id: str):
             with conn.cursor() as cur:
                 cur = conn.cursor(cursor_factory=DictCursor)
                 cur.execute("""
-                    SELECT content, embedding 
+                    SELECT text, embedding 
                     FROM chunks 
                     WHERE document_id = %s
                 """, (document_id,))
