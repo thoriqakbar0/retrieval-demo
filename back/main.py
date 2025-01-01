@@ -1,4 +1,4 @@
-import pymupdf
+import fitz  # PyMuPDF
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import openai
@@ -64,7 +64,7 @@ def split_into_chunks(text: str, chunk_size: int = 1000) -> list[str]:
 
 def process_pdf(file_content: bytes) -> str:
     """Extract text from PDF file using PyMuPDF."""
-    doc = pymupdf.open(stream=file_content, filetype="pdf")
+    doc = fitz.open(stream=file_content, filetype="pdf")
     text = ""
     for page in doc:
         text += page.get_text() + "\n"
