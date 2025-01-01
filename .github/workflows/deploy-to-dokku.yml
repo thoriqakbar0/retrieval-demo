@@ -87,11 +87,13 @@ jobs:
               docker network create retrieval-demo-back
             fi
 
-            echo 'Deploying Web app...'
+            echo 'Rebuilding Web app...'
+            dokku ps:rebuild retrieval-demo || true
             dokku git:from-image retrieval-demo thorthorq/retrieval-demo-web:${{ steps.tag.outputs.tag }} || true
             dokku config:set --no-restart retrieval-demo POSTGRES_URL=${{ secrets.POSTGRES_URL }}
             
-            echo 'Deploying Backend app...'
+            echo 'Rebuilding Backend app...'
+            dokku ps:rebuild retrieval-demo-back || true
             dokku git:from-image retrieval-demo-back thorthorq/retrieval-demo-back:${{ steps.tag.outputs.tag }} || true
             dokku config:set --no-restart retrieval-demo-back POSTGRES_URL=${{ secrets.POSTGRES_URL }}
 
