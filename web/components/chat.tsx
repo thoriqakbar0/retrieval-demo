@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getApiUrl } from "@/lib/utils"
 
 type Message = {
   id: string
@@ -24,17 +25,67 @@ export function Chat({ className, ...props }: CardProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
 
-  const handleSend = () => {
-    if (input.trim()) {
-      const newMessage: Message = {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSend = async () => {
+    if (!input.trim()) return
+
+    const userMessage: Message = {
+      id: Math.random().toString(36).substring(7),
+      text: input,
+      isUser: true,
+      timestamp: new Date()
+    }
+    
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Create a new assistant message with empty text
+      const assistantMessage: Message = {
         id: Math.random().toString(36).substring(7),
-        text: input,
-        isUser: true,
+        text: '',
+        isUser: false,
         timestamp: new Date()
       }
-      setMessages([...messages, newMessage])
-      setInput('')
-      // Here you would typically call your chatbot API
+      setMessages(prev => [...prev, assistantMessage])
+
+      // Create SSE connection
+      const eventSource = new EventSource(`${getApiUrl()}/chat?message=${encodeURIComponent(input)}`)
+
+      eventSource.onmessage = (event) => {
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1]
+          if (lastMessage && !lastMessage.isUser) {
+            return [
+              ...prev.slice(0, -1),
+              {
+                ...lastMessage,
+                text: lastMessage.text + event.data
+              }
+            ]
+          }
+          return prev
+        })
+      }
+
+      eventSource.onerror = () => {
+        eventSource.close()
+        setIsLoading(false)
+        setError('Connection to the chatbot failed')
+      }
+
+      eventSource.addEventListener('done', () => {
+        eventSource.close()
+        setIsLoading(false)
+      })
+    } catch (err) {
+      setIsLoading(false)
+      setError('Failed to send message')
+      console.error(err)
     }
   }
 
@@ -42,6 +93,9 @@ export function Chat({ className, ...props }: CardProps) {
     <Card className={cn("w-[480px] h-[600px] flex flex-col", className)} {...props}>
       <CardHeader>
         <CardTitle>Chatbot</CardTitle>
+        {error && (
+          <p className="text-sm text-red-500 mt-2">{error}</p>
+        )}
       </CardHeader>
       <CardContent className="flex-1">
         <ScrollArea className="h-[400px] pr-4">
@@ -74,7 +128,9 @@ export function Chat({ className, ...props }: CardProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Type your message..."
           />
-          <Button onClick={handleSend}>Send</Button>
+          <Button onClick={handleSend} disabled={isLoading}>
+            {isLoading ? 'Sending...' : 'Send'}
+          </Button>
         </div>
       </div>
     </Card>
