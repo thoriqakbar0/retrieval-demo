@@ -8,7 +8,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { method: string } }
 ) {
-  const method = params.method
+  const { method } = await params
   
   try {
     const { message, documentId } = await request.json()
