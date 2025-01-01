@@ -10,7 +10,7 @@ export default async function Home() {
   try {
     const firstDocument = await db.select().from(documents).limit(1);
     if (firstDocument.length > 0) {
-      firstChunk = firstDocument[0].chunk || firstChunk;
+      firstChunk = firstDocument[0].chunks || firstChunk;
     }
   } catch (error) {
     console.error("Error fetching document:", error);
