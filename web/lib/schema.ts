@@ -9,7 +9,7 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
     index("url_idx").on(table.url),
-    index("embeddings_idx").on(table.embeddings),
+    index("embeddings_idx").on(table.embeddings.op("vector_l2_ops")),
 ]);
 
 export type Document = typeof documents.$inferSelect;
