@@ -67,6 +67,7 @@ jobs:
             S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
             S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}
             POSTGRES_URL=${{ secrets.POSTGRES_URL }}
+            VOYAGE_API_KEY=${{ secrets.VOYAGE_API_KEY }}
   deploy:
     runs-on: ubuntu-latest
     needs: [build-web, build-backend]
@@ -105,6 +106,7 @@ jobs:
             dokku config:set retrieval-demo-back S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
             dokku config:set retrieval-demo-back S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}
             dokku config:set retrieval-demo-back OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            dokku config:set retrieval-demo-back VOYAGE_API_KEY=${{ secrets.VOYAGE_API_KEY }}
             dokku git:from-image retrieval-demo-back thorthorq/retrieval-demo-back:latest || true
 
             echo 'Configuring Nginx for larger payloads...'
