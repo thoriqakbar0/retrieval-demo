@@ -21,10 +21,12 @@ const app = new Elysia({ prefix: '/api' })
 
       // Insert document into database
       const [document] = await db.insert(documents).values({
+        id: uuidv4(),
         url: documentUrl,
         originalContent: content,
-        chunks,
-        // embeddings will be added later
+        chunks: chunks || [],
+        embeddings: null,
+        createdAt: new Date()
       }).returning()
 
       return { 
