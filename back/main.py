@@ -19,6 +19,16 @@ load_dotenv()
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup_event():
+    """Download required NLTK resources on startup"""
+    try:
+        nltk.data.find('tokenizers/punkt')
+        nltk.data.find('tokenizers/punkt_tab')
+    except LookupError:
+        nltk.download('punkt')
+        nltk.download('punkt_tab')
+
 # Database connection
 DATABASE_URL = os.getenv('POSTGRES_URL')
 if not DATABASE_URL:
@@ -57,13 +67,6 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Download required NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-    nltk.download('punkt')
-    nltk.download('punkt_tab')
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding for text using OpenAI's API."""
