@@ -48,6 +48,8 @@ jobs:
           context: ./back
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest
+          build-args: |
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
 
   deploy:
     runs-on: ubuntu-latest
