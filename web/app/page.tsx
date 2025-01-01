@@ -1,4 +1,5 @@
 import { Chat } from "@/components/chat";
+import { getApiUrl } from "@/lib/utils";
 
 export default async function Home() {
   const hello = await fetch(`${getApiUrl()}/api/hello`)
