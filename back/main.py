@@ -30,6 +30,11 @@ import ssl
 async def startup_event():
     """Download required NLTK resources on startup"""
     try:
+        # Print environment variables
+        print("Environment Variables:")
+        for key, value in os.environ.items():
+            print(f"{key}: {value}")
+        
         # Create unverified SSL context for NLTK downloads
         ssl._create_default_https_context = ssl._create_unverified_context
         
