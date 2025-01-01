@@ -1,10 +1,9 @@
 import { Chat } from "@/components/chat";
-import crypto from 'crypto';
-import { db } from "@/lib/db";
 import { documents } from "@/lib/schema";
+import { db } from "@/lib/db";
 
 export default async function Home() {
-  const randomUUID = crypto.randomUUID();
+  const randomUUID = "db connection fails"
   let firstChunk = "No documents found";
   
   try {

@@ -14,7 +14,7 @@ import { useState } from "react"
 type Message = {
   id: string
   text: string
-  isUser: boolean
+  role: "user" | "assistant"
   timestamp: Date
 }
 
@@ -29,7 +29,7 @@ export function Chat({ className, ...props }: CardProps) {
       const newMessage: Message = {
         id: Math.random().toString(36).substring(7),
         text: input,
-        isUser: true,
+        role: "user",
         timestamp: new Date()
       }
       setMessages([...messages, newMessage])
@@ -48,10 +48,10 @@ export function Chat({ className, ...props }: CardProps) {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.role === "user" ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`max-w-[75%] rounded-lg p-3 ${
-                  message.isUser 
+                  message.role === "user"
                     ? 'bg-primary text-primary-foreground' 
                     : 'bg-muted'
                 }`}>
