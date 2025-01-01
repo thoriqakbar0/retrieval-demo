@@ -13,16 +13,21 @@ import re
 import nltk
 from nltk.tokenize import sent_tokenize
 import psycopg2
-from psycopg2.extras import DictRow
+from psycopg2.extras import DictCursor
 
 load_dotenv()
 
 app = FastAPI()
 
+import ssl
+
 @app.on_event("startup")
 async def startup_event():
     """Download required NLTK resources on startup"""
     try:
+        # Create unverified SSL context for NLTK downloads
+        ssl._create_default_https_context = ssl._create_unverified_context
+        
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('tokenizers/punkt_tab')
     except LookupError:
@@ -35,7 +40,7 @@ if not DATABASE_URL:
     raise ValueError("Database URL not found in environment variables")
 
 def get_db():
-    return psycopg2.connect(DATABASE_URL, row_factory=DictRow)
+    return psycopg2.connect(DATABASE_URL)
 
 # Initialize S3 client for Digital Ocean Spaces
 s3 = boto3.client('s3',
@@ -297,12 +302,14 @@ async def get_status(document_id: str):
         # Fetch chunks from database
         with get_db() as conn:
             with conn.cursor() as cur:
+                cur = conn.cursor(cursor_factory=DictCursor)
                 cur.execute("""
                     SELECT content, embedding 
                     FROM chunks 
                     WHERE document_id = %s
                 """, (document_id,))
                 chunks = cur.fetchall()
+                cur.close()
         return {
             "status": status.value,
             "chunks": chunks
