@@ -99,7 +99,8 @@ jobs:
             dokku config:set retrieval-demo \
               "POSTGRES_URL='${{ secrets.POSTGRES_URL }}'" \
               "NODE_ENV='production'" \
-              "NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}"
+              "NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}" \
+              
             
             echo 'Pulling latest Backend image...'
             docker pull thorthorq/retrieval-demo-back:latest
