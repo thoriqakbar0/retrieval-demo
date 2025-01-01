@@ -34,12 +34,11 @@ export function Chat({ className, ...props }: CardProps) {
       }
       setMessages([...messages, newMessage])
       setInput('')
-      // Here you would typically call your chatbot API
     }
   }
 
   return (
-    <Card className={cn("w-[480px] h-[600px] flex flex-col", className)} {...props}>
+    <Card className={cn("w-[480px] h-[600px] flex flex-col debug", className)} {...props}>
       <CardHeader>
         <CardTitle>Chatbot</CardTitle>
       </CardHeader>
