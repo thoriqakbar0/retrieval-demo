@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ALTER COLUMN "chunk" SET DATA TYPE text[];
