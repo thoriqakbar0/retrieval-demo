@@ -344,5 +344,67 @@ async def get_document(document_id: str):
 @app.post("/chat")
 async def chat(request: Request):
     data = await request.json()
-    print(data)
-    return {"message": "Chat message received"}
+    message = data.get("message")
+    document_id = data.get("document_id")
+    method = data.get("method", "cosine")  # cosine, euclidean, manhattan, dot_product
+    
+    if not message or not document_id:
+        raise HTTPException(status_code=400, detail="Message and document_id are required")
+        
+    try:
+        # Get query embedding
+        query_embedding = get_embedding(message)
+        
+        # Get chunks from database
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT id, text, embedding
+                    FROM chunks 
+                    WHERE document_id = %s
+                    ORDER BY created_at ASC
+                """, (document_id,))
+                chunks = cur.fetchall()
+                
+        if not chunks:
+            return {
+                "response": "No chunks found for this document",
+                "chunks": []
+            }
+            
+        # Calculate similarity based on method
+        chunk_scores = []
+        for chunk in chunks:
+            if method == "cosine":
+                # Cosine similarity
+                dot_product = sum(a * b for a, b in zip(query_embedding, chunk["embedding"]))
+                magnitude1 = sum(a * a for a in query_embedding) ** 0.5
+                magnitude2 = sum(b * b for b in chunk["embedding"]) ** 0.5
+                score = dot_product / (magnitude1 * magnitude2)
+            elif method == "euclidean":
+                # Euclidean distance (converted to similarity)
+                distance = sum((a - b) ** 2 for a, b in zip(query_embedding, chunk["embedding"])) ** 0.5
+                score = 1 / (1 + distance)  # Convert distance to similarity
+            elif method == "manhattan":
+                # Manhattan distance (converted to similarity)
+                distance = sum(abs(a - b) for a, b in zip(query_embedding, chunk["embedding"]))
+                score = 1 / (1 + distance)  # Convert distance to similarity
+            else:  # dot_product
+                # Dot product
+                score = sum(a * b for a, b in zip(query_embedding, chunk["embedding"]))
+                
+            chunk_scores.append((score, chunk))
+            
+        # Sort by score and get top 3
+        chunk_scores.sort(key=lambda x: x[0], reverse=True)
+        top_chunks = [{"text": chunk["text"], "score": score} for score, chunk in chunk_scores[:3]]
+        
+        # For now, just return a simple response with the chunks
+        return {
+            "response": f"Retrieved {len(top_chunks)} relevant chunks using {method} similarity",
+            "chunks": top_chunks
+        }
+                
+    except Exception as e:
+        print(f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

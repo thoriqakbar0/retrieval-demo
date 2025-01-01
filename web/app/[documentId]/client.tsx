@@ -73,8 +73,11 @@ export function DocumentPageContent({ documentId }: { documentId: string }) {
           </div>
         )}
       </div>
-      <div className="w-full max-w-2xl">
-        <Chat documentId={documentId} />
+      <div className="w-full max-w-[90vw] grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Chat documentId={documentId} method="cosine" />
+        <Chat documentId={documentId} method="euclidean" />
+        <Chat documentId={documentId} method="manhattan" />
+        <Chat documentId={documentId} method="dot_product" />
       </div>
     </div>
   );

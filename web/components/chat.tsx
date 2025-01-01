@@ -16,15 +16,21 @@ type Message = {
   text: string
   role: "user" | "assistant"
   timestamp: Date
+  chunks?: {
+    text: string
+    score: number
+  }[]
 }
 
 type CardProps = React.ComponentProps<typeof Card>
 
 interface ChatProps {
   documentId?: string;
+  method?: "cosine" | "euclidean" | "manhattan" | "dot_product";
+  className?: string;
 }
 
-export function Chat({ documentId, className, ...props }: ChatProps & CardProps) {
+export function Chat({ documentId, method = "cosine", className, ...props }: ChatProps & CardProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -50,6 +56,7 @@ export function Chat({ documentId, className, ...props }: ChatProps & CardProps)
           body: JSON.stringify({
             message: input,
             documentId,
+            method,
           }),
         })
 
@@ -58,7 +65,8 @@ export function Chat({ documentId, className, ...props }: ChatProps & CardProps)
           id: Math.random().toString(36).substring(7),
           text: data.response,
           role: "assistant",
-          timestamp: new Date()
+          timestamp: new Date(),
+          chunks: data.chunks
         }
         setMessages(prev => [...prev, assistantMessage])
       } catch (error) {
@@ -70,28 +78,39 @@ export function Chat({ documentId, className, ...props }: ChatProps & CardProps)
   }
 
   return (
-    <Card className={cn("w-[480px] h-[600px] flex flex-col", className)} {...props}>
+    <Card className={cn("w-full h-[600px] flex flex-col", className)} {...props}>
       <CardHeader>
-        <CardTitle>Chat with Document</CardTitle>
+        <CardTitle>Chat ({method})</CardTitle>
       </CardHeader>
       <CardContent className="flex-1">
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === "user" ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[75%] rounded-lg p-3 ${
-                  message.role === "user"
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted'
-                }`}>
-                  <p className="text-sm">{message.text}</p>
-                  <p className="text-xs mt-1 opacity-80">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+              <div key={message.id}>
+                <div
+                  className={`flex ${message.role === "user" ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[75%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted'
+                  }`}>
+                    <p className="text-sm">{message.text}</p>
+                    <p className="text-xs mt-1 opacity-80">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
+                {message.chunks && (
+                  <div className="mt-2 space-y-2">
+                    {message.chunks.map((chunk, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded p-2 text-xs">
+                        <div className="font-medium">Chunk {idx + 1} (Score: {chunk.score.toFixed(4)})</div>
+                        <div className="mt-1">{chunk.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && (
