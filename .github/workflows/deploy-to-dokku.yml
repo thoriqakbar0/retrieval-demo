@@ -81,7 +81,7 @@ jobs:
       - name: Deploy to Dokku
         run: |
           echo "Starting deployment..."
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << "EOF"
             set -ex
             # Create network if it doesn't exist
             if ! docker network inspect retrieval-demo-back >/dev/null 2>&1; then
@@ -96,8 +96,8 @@ jobs:
             dokku ps:rebuild retrieval-demo || true
             dokku git:from-image retrieval-demo thorthorq/retrieval-demo-web:latest || true
             dokku config:set retrieval-demo \
-              POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
-              API_URL=${{ secrets.API_URL }}
+              "POSTGRES_URL='${{ secrets.POSTGRES_URL }}'" \
+              "API_URL='${{ secrets.API_URL }}'"
             
             echo 'Pulling latest Backend image...'
             docker pull thorthorq/retrieval-demo-back:latest
@@ -105,11 +105,11 @@ jobs:
             echo 'Rebuilding Backend app...'
             dokku ps:rebuild retrieval-demo-back || true
             dokku config:set retrieval-demo-back \
-              POSTGRES_URL=${{ secrets.POSTGRES_URL }} \
-              S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }} \
-              S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }} \
-              OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-              VOYAGE_API_KEY=${{ secrets.VOYAGE_API_KEY }}
+              "POSTGRES_URL='${{ secrets.POSTGRES_URL }}'" \
+              "S3_ACCESS_KEY='${{ secrets.S3_ACCESS_KEY }}'" \
+              "S3_SECRET_KEY='${{ secrets.S3_SECRET_KEY }}'" \
+              "OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}'" \
+              "VOYAGE_API_KEY='${{ secrets.VOYAGE_API_KEY }}'"
             dokku git:from-image retrieval-demo-back thorthorq/retrieval-demo-back:latest || true
 
             echo 'Configuring Nginx for larger payloads...'
