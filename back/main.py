@@ -18,6 +18,7 @@ from psycopg2.extras import DictCursor
 from typing import List, Dict, Any
 import numpy as np
 from pydantic import BaseModel
+import voyageai
 
 load_dotenv()
 
@@ -78,6 +79,13 @@ client = openai.OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
+# Add this after other environment variables
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
+if not VOYAGE_API_KEY:
+    raise ValueError("Voyage API key not found in environment variables")
+
+# Initialize Voyage client
+voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding for text using OpenAI's API."""
@@ -436,7 +444,11 @@ async def chat_embedding(request: ChatRequest):
             
         # Sort by score and get top 3
         chunk_scores.sort(key=lambda x: x[0], reverse=True)
-        top_chunks = [{"text": chunk["text"], "score": float(score)} for score, chunk in chunk_scores[:3]]
+        top_chunks = [{
+            "text": chunk["text"], 
+            "score": round(float(score), 2),  # Round to 2 decimal places
+            "chunk": chunk["id"]  # Add chunk ID
+        } for score, chunk in chunk_scores[:3]]
         
         # Get chat response using context
         chat_response = get_chat_response(message, top_chunks)
@@ -452,17 +464,18 @@ async def chat_embedding(request: ChatRequest):
 
 @app.post("/chat/rerank")
 async def chat_rerank(request: ChatRequest):
-    """Endpoint for embedding + reranking retrieval."""
+    """Endpoint for embedding + reranking retrieval using Voyage AI."""
     message = request.message
     document_id = request.documentId
     
     if not message or not document_id:
         raise HTTPException(status_code=400, detail="Message and document_id are required")
-    
+        
     try:
-        # First verify document exists
+        # First verify document exists and get chunks
         with get_db() as conn:
             with conn.cursor(cursor_factory=DictCursor) as cur:
+                # Get document
                 cur.execute("""
                     SELECT id FROM documents 
                     WHERE id = %s
@@ -471,10 +484,68 @@ async def chat_rerank(request: ChatRequest):
                 
                 if not doc:
                     raise HTTPException(status_code=404, detail="Document not found")
+                
+                # Get all chunks
+                cur.execute("""
+                    SELECT id, text, embedding
+                    FROM chunks 
+                    WHERE document_id = %s
+                    ORDER BY created_at ASC
+                """, (document_id,))
+                chunks = cur.fetchall()
 
-        # For now, use embedding-based retrieval
-        return await chat_embedding(request)
+        if not chunks:
+            return {
+                "response": "No chunks found for this document. The document might still be processing.",
+                "chunks": []
+            }
+
+        # First get rough candidates using embedding similarity
+        query_embedding = get_embedding(message)
+        chunk_scores = []
+        for chunk in chunks:
+            chunk_embedding = chunk["embedding"]
+            if isinstance(chunk_embedding, str):
+                chunk_embedding = [float(x) for x in chunk_embedding.strip('[]').split(',')]
+            
+            # Calculate cosine similarity
+            dot_product = np.dot(query_embedding, chunk_embedding)
+            query_norm = np.linalg.norm(query_embedding)
+            chunk_norm = np.linalg.norm(chunk_embedding)
+            
+            score = dot_product / (query_norm * chunk_norm) if query_norm and chunk_norm else 0
+            chunk_scores.append((score, chunk))
+
+        # Get top 10 candidates for reranking
+        chunk_scores.sort(key=lambda x: x[0], reverse=True)
+        candidate_chunks = [(chunk["text"], chunk["id"]) for _, chunk in chunk_scores[:10]]
+
+        # Rerank candidates using Voyage AI
+        reranking = voyage_client.rerank(
+            query=message,
+            documents=[text for text, _ in candidate_chunks],
+            model="rerank-2",
+            top_k=3  # Get top 3 most relevant chunks
+        )
+
+        # Format reranked chunks
+        top_chunks = [
+            {
+                "text": result.document, 
+                "score": round(float(result.relevance_score), 2),  # Round to 2 decimal places
+                "chunk": candidate_chunks[i][1]  # Add chunk ID from original candidates
+            } 
+            for i, result in enumerate(reranking.results)
+        ]
+
+        # Get chat response using reranked context
+        chat_response = get_chat_response(message, top_chunks)
         
+        return {
+            "response": chat_response,
+            "chunks": top_chunks
+        }
+            
     except Exception as e:
         print(f"Rerank chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

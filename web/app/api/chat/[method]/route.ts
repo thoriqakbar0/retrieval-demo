@@ -7,8 +7,7 @@ export async function POST(
   { params }: { params: { method: string } }
 ) {
   try {
-    // Await params before accessing its properties
-    const { method } = await params
+    const { method } = params
     const body = await request.json()
 
     // Validate method
@@ -31,8 +30,23 @@ export async function POST(
       body: JSON.stringify(body),
     })
 
+    // Get the error details from the backend if available
     if (!response.ok) {
-      throw new Error(`Backend returned ${response.status}`)
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+      
+      return new Response(
+        JSON.stringify({
+          error: errorData.detail || `Backend error: ${response.status}`,
+          status: response.status,
+          method: method
+        }), 
+        {
+          status: response.status,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
     }
 
     const data = await response.json()
@@ -45,8 +59,14 @@ export async function POST(
     })
   } catch (error) {
     console.error('Chat API error:', error)
+    
+    // Provide more structured error response
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Internal server error',
+        timestamp: new Date().toISOString(),
+        path: `/chat/${params.method}`
+      }),
       {
         status: 500,
         headers: {
