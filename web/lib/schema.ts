@@ -1,4 +1,6 @@
 import { pgTable, text, uuid, timestamp, index, vector } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
 
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -14,3 +16,10 @@ export const documents = pgTable("documents", {
 
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
+
+export async function getTotalDocuments() {
+  const result = await db.select({ 
+    count: sql<number>`count(*)` 
+  }).from(documents);
+  return result[0].count;
+}
