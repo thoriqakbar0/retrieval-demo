@@ -12,8 +12,8 @@ from enum import Enum
 import re
 import nltk
 from nltk.tokenize import sent_tokenize
-import psycopg_binary as psycopg
-from psycopg_binary.rows import dict_rows
+import psycopg2
+from psycopg2.extras import DictRow
 
 load_dotenv()
 
@@ -35,7 +35,7 @@ if not DATABASE_URL:
     raise ValueError("Database URL not found in environment variables")
 
 def get_db():
-    return psycopg.connect(DATABASE_URL, row_factory=dict_rows)
+    return psycopg2.connect(DATABASE_URL, row_factory=DictRow)
 
 # Initialize S3 client for Digital Ocean Spaces
 s3 = boto3.client('s3',
