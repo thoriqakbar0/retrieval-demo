@@ -6,7 +6,7 @@ export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url").notNull(),
   title: text("title").notNull(),
-  chunks: text("chunk").notNull(),
+  chunks: text("chunk").array().notNull(),
   embeddings: vector('embeddings', { dimensions: 1536 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
