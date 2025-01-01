@@ -2,11 +2,11 @@ import { db } from "@/lib/db"
 import { documents } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 
-export default async function DocumentPage({
-  params,
-}: {
+interface PageProps {
   params: { id: string }
-}) {
+}
+
+export default async function DocumentPage({ params }: PageProps) {
   const document = await db.query.documents.findFirst({
     where: eq(documents.id, params.id),
   })
