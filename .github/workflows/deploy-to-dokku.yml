@@ -68,11 +68,19 @@ jobs:
           echo "Starting deployment..."
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v root@${{ secrets.DOKKU_HOST }} << 'EOF'
             set -ex
+            # Create network if it doesn't exist
+            if ! docker network inspect retrieval-demo-back >/dev/null 2>&1; then
+              echo 'Creating retrieval-demo-back network...'
+              docker network create retrieval-demo-back
+            fi
+
             echo 'Deploying Web app...'
             dokku git:from-image retrieval-demo ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest || true
+            dokku ps:rebuild retrieval-demo
             
             echo 'Deploying Backend app...'
             dokku git:from-image retrieval-demo-back ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-back:latest || true
+            dokku ps:rebuild retrieval-demo-back
 
             echo 'Deployment complete!'
           EOF
