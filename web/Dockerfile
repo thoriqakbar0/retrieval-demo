@@ -23,6 +23,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Pass environment variables as build arguments
+ARG POSTGRES_URL
+ARG API_URL
+ENV POSTGRES_URL=$POSTGRES_URL
+ENV API_URL=$API_URL
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.

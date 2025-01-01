@@ -26,6 +26,9 @@ jobs:
           context: ./web
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/retrieval-demo-web:latest
+          build-args: |
+            POSTGRES_URL=${{ secrets.POSTGRES_URL }}
+            API_URL=${{ secrets.API_URL }}
 
   build-backend:
     runs-on: ubuntu-latest
