@@ -1,5 +1,6 @@
 import pymupdf
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Request
+
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
@@ -340,8 +341,8 @@ async def get_document(document_id: str):
             return doc_dict
 
 
-# @app.post("/chat")
-# async def chat(request: Request):
-#     data = await request.json()
-#     print(data)
-#     return {"message": "Chat message received"}
+@app.post("/chat")
+async def chat(request: Request):
+    data = await request.json()
+    print(data)
+    return {"message": "Chat message received"}

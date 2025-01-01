@@ -107,5 +107,9 @@ jobs:
             dokku config:set --no-restart retrieval-demo-back S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}
             dokku config:set --no-restart retrieval-demo-back S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}
 
+            echo 'Configuring Nginx for larger payloads...'
+            dokku nginx:set retrieval-demo-back client-max-body-size 50M
+            dokku proxy:build-config retrieval-demo-back
+
             echo 'Deployment complete!'
           EOF

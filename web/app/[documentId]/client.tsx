@@ -41,7 +41,7 @@ export function DocumentPageContent({ documentId }: { documentId: string }) {
       if (isPolling) {
         fetchDocumentDetails();
       }
-    }, 2000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [documentId, isPolling]);
