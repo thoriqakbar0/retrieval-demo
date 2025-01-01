@@ -12,10 +12,20 @@ from enum import Enum
 import re
 import nltk
 from nltk.tokenize import sent_tokenize
+import psycopg
+from psycopg.rows import dict_rows
 
 load_dotenv()
 
 app = FastAPI()
+
+# Database connection
+DATABASE_URL = os.getenv('POSTGRES_URL')
+if not DATABASE_URL:
+    raise ValueError("Database URL not found in environment variables")
+
+def get_db():
+    return psycopg.connect(DATABASE_URL, row_factory=dict_rows)
 
 # Initialize S3 client for Digital Ocean Spaces
 s3 = boto3.client('s3',
@@ -213,17 +223,16 @@ async def process_document_background(document_id: str, content: bytes, filename
         # Split into chunks
         chunks = split_into_chunks(text)
         
-        # Get embeddings for each chunk
-        processed_chunks = []
-        for chunk in chunks:
-            embedding = get_embedding(chunk)
-            processed_chunks.append({
-                "text": chunk,
-                "embedding": embedding
-            })
-        
-        # Store chunks for later retrieval
-        document_chunks[document_id] = processed_chunks
+        # Get embeddings for each chunk and store in database
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                for chunk in chunks:
+                    embedding = get_embedding(chunk)
+                    cur.execute("""
+                        INSERT INTO chunks (id, document_id, content, embedding)
+                        VALUES (%s, %s, %s, %s)
+                    """, (str(uuid.uuid4()), document_id, chunk, embedding))
+            conn.commit()
         
         # Update status to completed
         processing_status[document_id] = ProcessingStatus.COMPLETED
@@ -247,6 +256,15 @@ async def upload_document(
         # Upload to Digital Ocean Spaces
         file_url = upload_to_spaces(content, file.filename)
         
+        # Create document in database
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO documents (id, url, title, created_at)
+                    VALUES (%s, %s, %s, NOW())
+                """, (document_id, file_url, file.filename))
+            conn.commit()
+        
         # Set initial status
         processing_status[document_id] = ProcessingStatus.PENDING
         
@@ -265,14 +283,31 @@ async def upload_document(
         }
         
     except Exception as e:
+        print(f"Upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/status/{document_id}")
 async def get_status(document_id: str):
     status = processing_status.get(document_id, ProcessingStatus.FAILED)
+    
+    if status == ProcessingStatus.COMPLETED:
+        # Fetch chunks from database
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT content, embedding 
+                    FROM chunks 
+                    WHERE document_id = %s
+                """, (document_id,))
+                chunks = cur.fetchall()
+        return {
+            "status": status.value,
+            "chunks": chunks
+        }
+    
     return {
         "status": status.value,
-        "chunks": document_chunks.get(document_id, []) if status == ProcessingStatus.COMPLETED else None
+        "chunks": None
     }
 
 
