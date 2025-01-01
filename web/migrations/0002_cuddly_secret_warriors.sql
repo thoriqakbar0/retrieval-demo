@@ -1,0 +1,1 @@
+ALTER TABLE "documents" RENAME COLUMN "original_content" TO "title";
