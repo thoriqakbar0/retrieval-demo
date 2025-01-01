@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
+import { getApiUrl } from '@/lib/utils'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = getApiUrl()
 
 export async function POST(
   request: NextRequest,
