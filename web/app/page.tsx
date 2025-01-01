@@ -17,10 +17,14 @@ export default async function Home() {
   }
 
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] min-h-screen p-8 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] debug">
-      <h1 className="text-xl font-bold debug">Document Retrieval System: {randomUUID}</h1>
-      <h1 className="text-xl font-bold">First Chunk: {firstChunk}</h1>
-      <Chat />
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)] debug">
+      <div className="flex flex-col items-center gap-4">
+        <h1 className="text-xl font-bold">Document Retrieval System: {randomUUID}</h1>
+        <h1 className="text-xl font-bold">First Chunk: {firstChunk}</h1>
+      </div>
+      <div className="w-full max-w-2xl">
+        <Chat />
+      </div>
     </div>
   );
 }
