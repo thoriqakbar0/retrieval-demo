@@ -1,8 +1,7 @@
-import { Chat } from "@/components/chat";
 import { Upload } from "@/components/upload";
 import { getTotalDocuments } from "@/lib/schema";
 
-export default async function Home() {
+export default async function Home(): Promise<JSX.Element> {
   let totalDocuments = 0;
 
   try {
@@ -18,7 +17,6 @@ export default async function Home() {
       </div>
       <div className="w-full max-w-2xl space-y-8">
         <Upload />
-        <Chat />
       </div>
     </div>
   );

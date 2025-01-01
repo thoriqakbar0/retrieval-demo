@@ -17,6 +17,7 @@ import psycopg2
 from psycopg2.extras import DictCursor
 from typing import List, Dict, Any
 import numpy as np
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -365,118 +366,33 @@ def get_chat_response(message: str, context_chunks: List[Dict[str, Any]]) -> str
         print(f"OpenAI API error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get chat response")
 
-@app.post("/chat")
-async def chat(request: Request):
-    data = await request.json()
-    message = data.get("message")
-    document_id = data.get("document_id")
-    method = data.get("method", "embedding")
-    
-    if not message or not document_id:
-        raise HTTPException(status_code=400, detail="Message and document_id are required")
-        
-    try:
-        if method == "embedding":
-            # Get query embedding
-            query_embedding = get_embedding(message)
-            
-            # Get chunks from database
-            with get_db() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cur:
-                    cur.execute("""
-                        SELECT id, text, embedding
-                        FROM chunks 
-                        WHERE document_id = %s
-                        ORDER BY created_at ASC
-                    """, (document_id,))
-                    chunks = cur.fetchall()
-                    
-            if not chunks:
-                return {
-                    "response": "No chunks found for this document",
-                    "chunks": []
-                }
-                
-            # Calculate cosine similarity
-            chunk_scores = []
-            for chunk in chunks:
-                dot_product = sum(a * b for a, b in zip(query_embedding, chunk["embedding"]))
-                magnitude1 = sum(a * a for a in query_embedding) ** 0.5
-                magnitude2 = sum(b * b for b in chunk["embedding"]) ** 0.5
-                score = dot_product / (magnitude1 * magnitude2)
-                chunk_scores.append((score, chunk))
-                
-            # Sort by score and get top 3
-            chunk_scores.sort(key=lambda x: x[0], reverse=True)
-            top_chunks = [{"text": chunk["text"], "score": score} for score, chunk in chunk_scores[:3]]
-            
-            # Get chat response using context
-            chat_response = get_chat_response(message, top_chunks)
-            
-            return {
-                "response": chat_response,
-                "chunks": top_chunks
-            }
-            
-        else:  # For other methods, temporarily use regular OpenAI chat
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": message}
-                ],
-                temperature=0.7,
-                max_tokens=500
-            )
-            
-            return {
-                "response": response.choices[0].message.content,
-                "chunks": []  # Empty chunks for now
-            }
-                
-    except Exception as e:
-        print(f"Chat error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Add a new endpoint for advanced retrieval methods (placeholder for now)
-@app.post("/chat/advanced")
-async def chat_advanced(request: Request):
-    data = await request.json()
-    message = data.get("message")
-    method = data.get("method")
-    
-    # For now, just use regular OpenAI chat
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        
-        return {
-            "response": response.choices[0].message.content,
-            "chunks": []  # Empty chunks for now
-        }
-        
-    except Exception as e:
-        print(f"Advanced chat error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Add request model
+class ChatRequest(BaseModel):
+    message: str
+    documentId: str | None = None
 
 @app.post("/chat/embedding")
-async def chat_embedding(request: Request):
+async def chat_embedding(request: ChatRequest):
     """Endpoint for embedding-based retrieval with OpenAI chat."""
-    data = await request.json()
-    message = data.get("message")
-    document_id = data.get("document_id")
+    message = request.message
+    document_id = request.documentId
     
     if not message or not document_id:
         raise HTTPException(status_code=400, detail="Message and document_id are required")
         
     try:
+        # First verify document exists
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT id FROM documents 
+                    WHERE id = %s
+                """, (document_id,))
+                doc = cur.fetchone()
+                
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+        
         # Get query embedding
         query_embedding = get_embedding(message)
         
@@ -493,22 +409,34 @@ async def chat_embedding(request: Request):
                 
         if not chunks:
             return {
-                "response": "No chunks found for this document",
+                "response": "No chunks found for this document. The document might still be processing.",
                 "chunks": []
             }
             
         # Calculate cosine similarity
         chunk_scores = []
         for chunk in chunks:
-            dot_product = sum(a * b for a, b in zip(query_embedding, chunk["embedding"]))
-            magnitude1 = sum(a * a for a in query_embedding) ** 0.5
-            magnitude2 = sum(b * b for b in chunk["embedding"]) ** 0.5
-            score = dot_product / (magnitude1 * magnitude2)
+            # Convert string representation of embedding to list of floats if needed
+            chunk_embedding = chunk["embedding"]
+            if isinstance(chunk_embedding, str):
+                # Remove brackets and split by commas
+                chunk_embedding = [float(x) for x in chunk_embedding.strip('[]').split(',')]
+            
+            # Calculate cosine similarity
+            dot_product = np.dot(query_embedding, chunk_embedding)
+            query_norm = np.linalg.norm(query_embedding)
+            chunk_norm = np.linalg.norm(chunk_embedding)
+            
+            if query_norm == 0 or chunk_norm == 0:
+                score = 0
+            else:
+                score = dot_product / (query_norm * chunk_norm)
+            
             chunk_scores.append((score, chunk))
             
         # Sort by score and get top 3
         chunk_scores.sort(key=lambda x: x[0], reverse=True)
-        top_chunks = [{"text": chunk["text"], "score": score} for score, chunk in chunk_scores[:3]]
+        top_chunks = [{"text": chunk["text"], "score": float(score)} for score, chunk in chunk_scores[:3]]
         
         # Get chat response using context
         chat_response = get_chat_response(message, top_chunks)
@@ -523,93 +451,87 @@ async def chat_embedding(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/rerank")
-async def chat_rerank(request: Request):
+async def chat_rerank(request: ChatRequest):
     """Endpoint for embedding + reranking retrieval."""
-    data = await request.json()
-    message = data.get("message")
-    document_id = data.get("document_id")
+    message = request.message
+    document_id = request.documentId
     
     if not message or not document_id:
         raise HTTPException(status_code=400, detail="Message and document_id are required")
     
     try:
-        # For now, just use regular OpenAI chat
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        
-        return {
-            "response": response.choices[0].message.content,
-            "chunks": []  # Empty chunks for now
-        }
+        # First verify document exists
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT id FROM documents 
+                    WHERE id = %s
+                """, (document_id,))
+                doc = cur.fetchone()
+                
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+
+        # For now, use embedding-based retrieval
+        return await chat_embedding(request)
         
     except Exception as e:
         print(f"Rerank chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/colpali")
-async def chat_colpali(request: Request):
+async def chat_colpali(request: ChatRequest):
     """Endpoint for Colpali retrieval."""
-    data = await request.json()
-    message = data.get("message")
-    document_id = data.get("document_id")
+    message = request.message
+    document_id = request.documentId
     
     if not message or not document_id:
         raise HTTPException(status_code=400, detail="Message and document_id are required")
     
     try:
-        # For now, just use regular OpenAI chat
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        
-        return {
-            "response": response.choices[0].message.content,
-            "chunks": []  # Empty chunks for now
-        }
+        # First verify document exists
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT id FROM documents 
+                    WHERE id = %s
+                """, (document_id,))
+                doc = cur.fetchone()
+                
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+
+        # For now, use embedding-based retrieval
+        return await chat_embedding(request)
         
     except Exception as e:
         print(f"Colpali chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/colbert")
-async def chat_colbert(request: Request):
+async def chat_colbert(request: ChatRequest):
     """Endpoint for ColBERT retrieval."""
-    data = await request.json()
-    message = data.get("message")
-    document_id = data.get("document_id")
+    message = request.message
+    document_id = request.documentId
     
     if not message or not document_id:
         raise HTTPException(status_code=400, detail="Message and document_id are required")
     
     try:
-        # For now, just use regular OpenAI chat
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        
-        return {
-            "response": response.choices[0].message.content,
-            "chunks": []  # Empty chunks for now
-        }
+        # First verify document exists
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT id FROM documents 
+                    WHERE id = %s
+                """, (document_id,))
+                doc = cur.fetchone()
+                
+                if not doc:
+                    raise HTTPException(status_code=404, detail="Document not found")
+
+        # For now, use embedding-based retrieval
+        return await chat_embedding(request)
         
     except Exception as e:
         print(f"ColBERT chat error: {str(e)}")

@@ -30,9 +30,12 @@ export type NewDocument = typeof documents.$inferInsert;
 export type Chunk = typeof chunks.$inferSelect;
 export type NewChunk = typeof chunks.$inferInsert;
 
-export async function getTotalDocuments() {
-  const result = await db.select({ 
-    count: sql<number>`count(*)` 
-  }).from(documents);
-  return result[0].count;
+export async function getTotalDocuments(): Promise<number> {
+  try {
+    const result = await db.select({ count: sql`count(*)` }).from(documents);
+    return Number(result[0].count) || 0;
+  } catch (error) {
+    console.error('Error getting total documents:', error);
+    return 0;
+  }
 }
