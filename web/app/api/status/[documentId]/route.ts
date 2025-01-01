@@ -1,33 +1,41 @@
-import { NextResponse } from "next/server";
-import { getApiUrl } from "@/lib/utils";
+import { getApiUrl } from '@/lib/utils'
+import { NextResponse } from 'next/server'
 
 interface Props {
-  params: {
-    documentId: string;
-  };
+  params: Promise<{ documentId: string }>;
 }
 
-export async function GET(request: Request, { params }: Props) {
+export async function GET(
+  request: Request, 
+  { params }: Props
+) {
   try {
-    const { documentId } = params;
+    const { documentId } = await params;
     
     // Fetch status from backend
     const response = await fetch(`${getApiUrl()}/status/${documentId}`);
-    
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to check status');
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Document not found' },
+          { status: 404 }
+        )
+      }
+      const errorText = await response.text()
+      return NextResponse.json(
+        { error: errorText || 'Failed to fetch status' },
+        { status: response.status }
+      )
     }
 
-    // Return the backend response directly
-    const data = await response.json();
-    return NextResponse.json(data);
-
+    const data = await response.json()
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('Status check error:', error);
+    console.error('Status API error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to check status' },
+      { error: 'Failed to fetch document status' },
       { status: 500 }
-    );
+    )
   }
 } 

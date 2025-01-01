@@ -2,26 +2,12 @@
 
 import { Chat } from "@/components/chat";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
-
-type Chunk = {
-  text: string;
-  embedding: number[];
-  order: number;
-};
+import Link from "next/link";
 
 type Status = {
   status: "pending" | "processing" | "completed" | "failed";
-  chunks: Chunk[] | null;
   chunks_processed: number;
 };
 
@@ -51,90 +37,93 @@ export function DocumentClient({ id, url, title }: DocumentClientProps) {
     checkStatus();
   }, [id]);
 
-  return (
-    <div className="flex flex-col gap-8">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold">{title}</h1>
-          <p className="text-sm text-muted-foreground">Status: {status?.status}</p>
-          {status?.chunks_processed ? (
-            <p className="text-sm text-muted-foreground">
-              Chunks processed: {status.chunks_processed}
-            </p>
-          ) : null}
-        </div>
+  if (status?.status === "failed") {
+    return (
+      <div className="container max-w-4xl mx-auto flex flex-col gap-4 items-center justify-center min-h-[400px]">
+        <h1 className="text-xl font-bold text-destructive">Processing Failed</h1>
+        <p className="text-muted-foreground">The document could not be processed.</p>
         <Button variant="outline" asChild>
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            View Document
-          </a>
+          <Link href="/">Return Home</Link>
         </Button>
       </div>
+    );
+  }
 
-      <Tabs defaultValue="chat" className="flex-1">
-        <TabsList>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="chunks">Chunks</TabsTrigger>
-        </TabsList>
-        <TabsContent value="chat" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Chat Methods</CardTitle>
-              <CardDescription>Select a retrieval method to use</CardDescription>
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  variant={selectedMethod === "embedding" ? "default" : "outline"}
-                  onClick={() => setSelectedMethod("embedding")}
-                >
-                  Embedding
-                </Button>
-                <Button 
-                  variant={selectedMethod === "rerank" ? "default" : "outline"}
-                  onClick={() => setSelectedMethod("rerank")}
-                >
-                  Rerank
-                </Button>
-                <Button 
-                  variant={selectedMethod === "colpali" ? "default" : "outline"}
-                  onClick={() => setSelectedMethod("colpali")}
-                >
-                  Colpali
-                </Button>
-                <Button 
-                  variant={selectedMethod === "colbert" ? "default" : "outline"}
-                  onClick={() => setSelectedMethod("colbert")}
-                >
-                  ColBERT
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Chat documentId={id} method={selectedMethod} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="chunks" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Chunks</CardTitle>
-              <CardDescription>
-                View the processed chunks of the document
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
-                  {status?.chunks?.map((chunk, i) => (
-                    <div key={i} className="p-4 border rounded-lg">
-                      <div className="font-medium mb-2">Chunk {i + 1}</div>
-                      <div className="text-sm">{chunk.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+  if (status?.status === "processing" || status?.status === "pending") {
+    return (
+      <div className="container max-w-4xl mx-auto flex flex-col gap-4 items-center justify-center min-h-[400px]">
+        <h1 className="text-xl font-bold">{title}</h1>
+        <p className="text-muted-foreground">
+          Processing document... ({status.chunks_processed} chunks processed)
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              View Document
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/">Return Home</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container max-w-4xl mx-auto py-8">
+      <Card className="mb-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-2xl">{title}</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Ready to chat</p>
+          </div>
+          <Button variant="outline" className="ml-4" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              View Document
+            </a>
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="mb-4">Select Chat Method</CardTitle>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Button 
+              variant={selectedMethod === "embedding" ? "default" : "outline"}
+              onClick={() => setSelectedMethod("embedding")}
+              className="w-full"
+            >
+              Embedding
+            </Button>
+            <Button 
+              variant={selectedMethod === "rerank" ? "default" : "outline"}
+              onClick={() => setSelectedMethod("rerank")}
+              className="w-full"
+            >
+              Rerank
+            </Button>
+            <Button 
+              variant={selectedMethod === "colpali" ? "default" : "outline"}
+              onClick={() => setSelectedMethod("colpali")}
+              className="w-full"
+            >
+              Colpali
+            </Button>
+            <Button 
+              variant={selectedMethod === "colbert" ? "default" : "outline"}
+              onClick={() => setSelectedMethod("colbert")}
+              className="w-full"
+            >
+              ColBERT
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Chat documentId={id} method={selectedMethod} />
+        </CardContent>
+      </Card>
     </div>
   );
 } 

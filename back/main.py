@@ -85,7 +85,7 @@ if not VOYAGE_API_KEY:
     raise ValueError("Voyage API key not found in environment variables")
 
 # Initialize Voyage client
-voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
+voyage_client = voyageai.Client()  # This will use VOYAGE_API_KEY from environment
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding for text using OpenAI's API."""
@@ -464,7 +464,7 @@ async def chat_embedding(request: ChatRequest):
 
 @app.post("/chat/rerank")
 async def chat_rerank(request: ChatRequest):
-    """Endpoint for embedding + reranking retrieval using Voyage AI."""
+    """Endpoint for reranking retrieval using Voyage AI."""
     message = request.message
     document_id = request.documentId
     
@@ -487,7 +487,7 @@ async def chat_rerank(request: ChatRequest):
                 
                 # Get all chunks
                 cur.execute("""
-                    SELECT id, text, embedding
+                    SELECT id, text
                     FROM chunks 
                     WHERE document_id = %s
                     ORDER BY created_at ASC
@@ -500,30 +500,14 @@ async def chat_rerank(request: ChatRequest):
                 "chunks": []
             }
 
-        # First get rough candidates using embedding similarity
-        query_embedding = get_embedding(message)
-        chunk_scores = []
-        for chunk in chunks:
-            chunk_embedding = chunk["embedding"]
-            if isinstance(chunk_embedding, str):
-                chunk_embedding = [float(x) for x in chunk_embedding.strip('[]').split(',')]
-            
-            # Calculate cosine similarity
-            dot_product = np.dot(query_embedding, chunk_embedding)
-            query_norm = np.linalg.norm(query_embedding)
-            chunk_norm = np.linalg.norm(chunk_embedding)
-            
-            score = dot_product / (query_norm * chunk_norm) if query_norm and chunk_norm else 0
-            chunk_scores.append((score, chunk))
+        # Extract texts and keep track of chunk IDs
+        chunk_texts = [chunk["text"] for chunk in chunks]
+        chunk_ids = [chunk["id"] for chunk in chunks]
 
-        # Get top 10 candidates for reranking
-        chunk_scores.sort(key=lambda x: x[0], reverse=True)
-        candidate_chunks = [(chunk["text"], chunk["id"]) for _, chunk in chunk_scores[:10]]
-
-        # Rerank candidates using Voyage AI
+        # Rerank all chunks using Voyage AI
         reranking = voyage_client.rerank(
             query=message,
-            documents=[text for text, _ in candidate_chunks],
+            documents=chunk_texts,
             model="rerank-2",
             top_k=3  # Get top 3 most relevant chunks
         )
@@ -531,10 +515,10 @@ async def chat_rerank(request: ChatRequest):
         # Format reranked chunks
         top_chunks = [
             {
-                "text": result.document, 
-                "score": round(float(result.relevance_score), 2),  # Round to 2 decimal places
-                "chunk": candidate_chunks[i][1]  # Add chunk ID from original candidates
-            } 
+                "text": result.document,
+                "score": round(float(result.relevance_score), 4),
+                "chunk": chunk_ids[i]
+            }
             for i, result in enumerate(reranking.results)
         ]
 
