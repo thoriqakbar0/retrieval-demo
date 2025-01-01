@@ -1,10 +1,11 @@
-import { pgTable, text, uuid, timestamp, index, vector, integer, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, index, vector, integer } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { db } from "./db";
 
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   url: text("url").notNull(),
+  file_url: text("file_url").notNull(),
   title: text("title").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [

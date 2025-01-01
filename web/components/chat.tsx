@@ -20,27 +20,59 @@ type Message = {
 
 type CardProps = React.ComponentProps<typeof Card>
 
-export function Chat({ className, ...props }: CardProps) {
+interface ChatProps {
+  documentId?: string;
+}
+
+export function Chat({ documentId, className, ...props }: ChatProps & CardProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (input.trim()) {
-      const newMessage: Message = {
+      const userMessage: Message = {
         id: Math.random().toString(36).substring(7),
         text: input,
         role: "user",
         timestamp: new Date()
       }
-      setMessages([...messages, newMessage])
+      setMessages(prev => [...prev, userMessage])
       setInput('')
+      setIsLoading(true)
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: input,
+            documentId,
+          }),
+        })
+
+        const data = await response.json()
+        const assistantMessage: Message = {
+          id: Math.random().toString(36).substring(7),
+          text: data.response,
+          role: "assistant",
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, assistantMessage])
+      } catch (error) {
+        console.error('Chat error:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
   }
 
   return (
-    <Card className={cn("w-[480px] h-[600px] flex flex-col debug", className)} {...props}>
+    <Card className={cn("w-[480px] h-[600px] flex flex-col", className)} {...props}>
       <CardHeader>
-        <CardTitle>Chatbot</CardTitle>
+        <CardTitle>Chat with Document</CardTitle>
       </CardHeader>
       <CardContent className="flex-1">
         <ScrollArea className="h-[400px] pr-4">
@@ -62,6 +94,13 @@ export function Chat({ className, ...props }: CardProps) {
                 </div>
               </div>
             ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[75%] rounded-lg p-3 bg-muted">
+                  <p className="text-sm">Thinking...</p>
+                </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </CardContent>
@@ -70,10 +109,13 @@ export function Chat({ className, ...props }: CardProps) {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Type your message..."
+            disabled={isLoading}
           />
-          <Button onClick={handleSend}>Send</Button>
+          <Button onClick={handleSend} disabled={isLoading}>
+            {isLoading ? 'Sending...' : 'Send'}
+          </Button>
         </div>
       </div>
     </Card>
