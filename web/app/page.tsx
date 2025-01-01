@@ -1,7 +1,7 @@
 import { Chat } from "@/components/chat";
 
 export default async function Home() {
-  const hello = await fetch("http://localhost:8000/api/hello")
+  const hello = await fetch(`${getApiUrl()}/api/hello`)
   const data = await hello.json()
   console.log(data)
   return (
