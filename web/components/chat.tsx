@@ -1,5 +1,4 @@
 "use client"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -30,15 +29,12 @@ type Message = {
   }[]
 }
 
-type CardProps = React.ComponentProps<typeof Card>
-
 interface ChatProps {
-  documentId?: string;
-  method?: "embedding" | "rerank" | "colpali" | "colbert";
-  className?: string;
+  documentId: string;
+  method: "embedding" | "rerank" | "colpali" | "colbert";
 }
 
-export function Chat({ documentId, method = "embedding", className, ...props }: ChatProps & CardProps) {
+export function Chat({ documentId, method }: ChatProps) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -118,7 +114,7 @@ export function Chat({ documentId, method = "embedding", className, ...props }: 
   }
 
   return (
-    <Card className={cn("w-[400px] mx-auto h-[500px] flex flex-col shadow-lg", className)} {...props}>
+    <Card className="w-[400px] mx-auto h-[500px] flex flex-col shadow-lg">
       <CardHeader className="py-3">
         <CardTitle className="text-sm">
           {documentId ? `Chat (${method})` : 'Upload a document to start chatting'}

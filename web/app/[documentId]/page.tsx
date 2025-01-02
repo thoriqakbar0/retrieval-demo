@@ -1,38 +1,47 @@
-import { Suspense } from "react";
-import { DocumentClient } from "./client";
-import { getApiUrl } from "@/lib/utils";
-
-interface Props {
-  params: Promise<{ documentId: string }>;
-}
+import { getApiUrl } from '@/lib/utils'
+import { Client } from './client'
+import { notFound } from 'next/navigation'
 
 async function getDocument(id: string) {
-  const res = await fetch(`${getApiUrl()}/documents/${id}`, {
-    next: { revalidate: 0 }
-  });
-  
-  if (!res.ok) {
-    throw new Error('Failed to fetch document');
+  try {
+    const res = await fetch(`${getApiUrl()}/documents/${id}`, {
+      next: { revalidate: 0 }
+    })
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        notFound()
+      }
+      throw new Error(`Failed to fetch document: ${res.statusText}`)
+    }
+
+    return await res.json()
+  } catch (error) {
+    console.error('Error fetching document:', error)
+    throw error
   }
-  
-  return res.json();
 }
 
-export default async function DocumentPage({ params }: Props) {
-  const { documentId } = await params;
-  const document = await getDocument(documentId);
-  
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+export default async function DocumentPage({ 
+  params: { documentId } 
+}: { 
+  params: { documentId: string } 
+}) {
+  try {
+    const document = await getDocument(documentId)
+
+    return (
+      <div className="flex-1 flex flex-col">
+        <Client document={document} />
       </div>
-    }>
-      <DocumentClient 
-        id={documentId} 
-        title={document.title} 
-        url={document.url}
-      />
-    </Suspense>
-  );
+    )
+  } catch (error) {
+    throw error
+  }
+}
+
+export function generateMetadata({ params }: { params: { documentId: string } }) {
+  return {
+    title: `Document ${params.documentId}`,
+  }
 } 
