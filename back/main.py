@@ -44,16 +44,31 @@ async def startup_event():
         nltk.download('punkt')
         nltk.download('punkt_tab')
 
-# Database connection
-DATABASE_URL = os.getenv('POSTGRES_URL')
-if not DATABASE_URL:
-    raise ValueError("Database URL not found in environment variables")
-
+# Database connection setup
 def get_db():
-    # Convert URL to connection string if needed
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://')
-    return psycopg2.connect(DATABASE_URL)
+    """
+    Get database connection with proper error handling.
+    
+    Raises:
+        HTTPException: If database connection fails
+    """
+    postgres_url = os.getenv('POSTGRES_URL')
+    if not postgres_url:
+        raise HTTPException(
+            status_code=500,
+            detail="POSTGRES_URL not found in environment variables"
+        )
+    
+    try:
+        # Convert URL to connection string if needed
+        if postgres_url.startswith('postgres://'):
+            postgres_url = postgres_url.replace('postgres://', 'postgresql://')
+        return psycopg2.connect(postgres_url)
+    except psycopg2.Error as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect to database: {str(e)}"
+        )
 
 # Initialize S3 client for Digital Ocean Spaces
 s3 = boto3.client('s3',
@@ -288,13 +303,19 @@ async def upload_document(
         file_url = upload_to_spaces(content, file.filename)
         
         # Create document in database
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO documents (id, url, title, created_at)
-                    VALUES (%s, %s, %s, NOW())
-                """, (document_id, file_url, file.filename))
-            conn.commit()
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO documents (id, url, title, created_at)
+                        VALUES (%s, %s, %s, NOW())
+                    """, (document_id, file_url, file.filename))
+                conn.commit()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {str(e)}"
+            )
         
         # Set initial status
         processing_status[document_id] = ProcessingStatus.PENDING
@@ -313,9 +334,13 @@ async def upload_document(
             "status": ProcessingStatus.PENDING.value
         }
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
     except Exception as e:
-        print(f"Upload error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {str(e)}"
+        )
 
 @app.get("/status/{document_id}")
 async def get_status(document_id: str):
