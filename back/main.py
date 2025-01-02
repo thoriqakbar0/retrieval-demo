@@ -50,6 +50,9 @@ if not DATABASE_URL:
     raise ValueError("Database URL not found in environment variables")
 
 def get_db():
+    # Convert URL to connection string if needed
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://')
     return psycopg2.connect(DATABASE_URL)
 
 # Initialize S3 client for Digital Ocean Spaces
