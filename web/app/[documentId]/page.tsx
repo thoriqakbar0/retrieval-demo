@@ -1,6 +1,7 @@
 import { getApiUrl } from '@/lib/utils'
 import { Client } from './client'
 import { notFound } from 'next/navigation'
+import { Metadata } from 'next'
 
 async function getDocument(id: string) {
   try {
@@ -22,6 +23,18 @@ async function getDocument(id: string) {
   }
 }
 
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: { documentId: string } 
+}): Promise<Metadata> {
+  const document = await getDocument(params.documentId)
+  
+  return {
+    title: document.title || `Document ${params.documentId}`,
+  }
+}
+
 export default async function DocumentPage({ 
   params: { documentId } 
 }: { 
@@ -37,11 +50,5 @@ export default async function DocumentPage({
     )
   } catch (error) {
     throw error
-  }
-}
-
-export function generateMetadata({ params }: { params: { documentId: string } }) {
-  return {
-    title: `Document ${params.documentId}`,
   }
 } 
