@@ -48,7 +48,7 @@ async def startup_event():
 def get_db():
     """
     Get database connection with proper error handling.
-    
+    te
     Raises:
         HTTPException: If database connection fails
     """
